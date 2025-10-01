@@ -1,0 +1,543 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { format } from 'date-fns';
+import { Utensils, Sparkles, Calendar, ShoppingBag, RefreshCw, Clock, Calendar1 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Link from 'next/link';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Pie } from 'react-chartjs-2';
+import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+
+ChartJS.register(ArcElement, Tooltip, Legend);
+
+export default function MealPlan() {
+  const { data: session } = useSession();
+  const [mealPlans, setMealPlans] = useState([]);
+  const [date, setDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const router = useRouter()
+
+  useEffect(() => {
+    const fetchMealPlans = async () => {
+      if (!session) return;
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/mealplan?date=${format(date, 'yyyy-MM-dd')}`);
+        if (res.ok) {
+          const data = await res.json();
+          setMealPlans(data);
+        }
+      } catch (error) {
+        toast.error('Failed to load meal plans');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchMealPlans();
+  }, [session, date]);
+
+  const generateMealPlan = async () => {
+    setIsGenerating(true);
+    const loadingToast = toast.loading('Generating meal plan...');
+    try {
+      const res = await fetch('/api/mealplan/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: format(date, 'yyyy-MM-dd') }),
+      });
+      if (res.ok) {
+        const newPlan = await res.json();
+        setMealPlans((prev) => [...prev, newPlan]);
+        toast.success('Meal plan generated successfully!', {
+          id: loadingToast,
+        });
+      } else {
+        throw new Error('Failed to generate meal plan');
+      }
+    } catch (error) {
+      toast.error('Failed to generate meal plan', {
+        id: loadingToast,
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const regenerateMealPlan = async () => {
+    setIsRegenerating(true);
+    const loadingToast = toast.loading('Regenerating meal plan...');
+    try {
+      const res = await fetch('/api/mealplan/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: format(date, 'yyyy-MM-dd') }),
+      });
+      if (res.ok) {
+        const updatedPlan = await res.json();
+        setMealPlans((prev) =>
+          prev.map((plan) =>
+            plan.date === updatedPlan.date ? updatedPlan : plan
+          )
+        );
+        toast.success('Meal plan regenerated successfully!', {
+          id: loadingToast,
+        });
+      } else {
+        throw new Error('Failed to regenerate meal plan');
+      }
+    } catch (error) {
+      toast.error('Failed to regenerate meal plan', {
+        id: loadingToast,
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const generateWeeklyMealPlan = async () => {
+    setIsRegenerating(true);
+    const loadingToast = toast.loading('Generating weekly meal plan...');
+    try {
+      const res = await fetch('/api/mealplan/weeklyGenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate: format(new Date(), 'yyyy-MM-dd') }),
+      });
+      if (res.ok) {
+
+        toast.success('Weekly Meal plan regenerated successfully!', {
+          id: loadingToast,
+        });
+        router.refresh();
+      } else {
+        throw new Error('Failed to regenerate meal plan');
+      }
+    } catch (error) {
+      console.error('Error regenerating weekly meal plan:', error);
+      toast.error('Failed to regenerate meal plan', {
+        id: loadingToast,
+      });
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const currentPlan = mealPlans.find(
+    (plan) => format(new Date(plan.date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+  );
+  // Collect ingredients from all meals, merge by name and sum amounts if duplicate
+  const mealIngredients = currentPlan
+    ? Object.values(
+      currentPlan.meals
+        .flatMap(meal => meal.ingredients)
+        .reduce((acc, ingredient) => {
+          if (!acc[ingredient.name]) {
+            acc[ingredient.name] = { ...ingredient };
+          } else {
+            // Try to sum numeric amounts if possible, otherwise keep the first
+            const match1 = acc[ingredient.name].amount.match(/^([\d.]+)\s*(\w*)$/);
+            const match2 = ingredient.amount.match(/^([\d.]+)\s*(\w*)$/);
+            if (match1 && match2 && match1[2] === match2[2]) {
+              // Same unit, sum the numbers
+              const sum = parseFloat(match1[1]) + parseFloat(match2[1]);
+              acc[ingredient.name].amount = `${sum}${match1[2] ? ' ' + match1[2] : ''}`;
+            }
+            // If not summable, just keep the first occurrence
+          }
+          return acc;
+        }, {})
+    )
+    : [];
+  let macroPercentages = { fat: 0, carbs: 0, protein: 0 };
+  if (currentPlan && currentPlan.totalMacros) {
+    const totalMacros =
+      currentPlan.totalMacros.fat +
+      currentPlan.totalMacros.carbs +
+      currentPlan.totalMacros.protein;
+    if (totalMacros > 0) {
+      macroPercentages.fat = Math.round((currentPlan.totalMacros.fat / totalMacros) * 100);
+      macroPercentages.carbs = Math.round((currentPlan.totalMacros.carbs / totalMacros) * 100);
+      macroPercentages.protein = Math.round((currentPlan.totalMacros.protein / totalMacros) * 100);
+    }
+  }
+
+  const pieData = {
+    labels: ['Fat', 'Carbs', 'Protein'],
+    datasets: [
+      {
+        data: [
+          macroPercentages.fat,
+          macroPercentages.carbs,
+          macroPercentages.protein,
+        ],
+        backgroundColor: ['#4FD1C5', '#F6E05E', '#B794F4'],
+        borderWidth: 0,
+      },
+    ],
+  };
+
+  const pieOptions = {
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: {
+          font: {
+            size: 12,
+            family: "'Inter', sans-serif",
+          },
+          color: '#4B5563',
+          padding: 10,
+        },
+      },
+      tooltip: {
+        enabled: true,
+        backgroundColor: '#1F2937',
+        titleFont: {
+          size: 12,
+          family: "'Inter', sans-serif",
+        },
+        bodyFont: {
+          size: 12,
+          family: "'Inter', sans-serif",
+        },
+        callbacks: {
+          label: (tooltipItem) => {
+            return `${tooltipItem.label}: ${tooltipItem.raw}%`;
+          },
+        },
+      },
+    },
+    maintainAspectRatio: false,
+  };
+
+  if (!session) {
+    return (
+      <div className="max-w-md mx-auto mt-20 bg-white rounded-lg shadow-md">
+        <div className="p-6 text-center">
+          <Utensils className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-lg font-semibold text-gray-900">
+            No Access
+          </h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Please sign in to view your meal plans.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const renderMealSection = (type) => {
+    const mealsOfType = currentPlan.meals.filter((meal) => meal.type === type);
+    if (mealsOfType.length === 0) return null; // Hide section if no meals of this type
+    return (
+      <div className='mx-16'>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold text-gray-800">{type}</h2>
+          <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+            {mealsOfType.reduce((total, meal) => total + meal.calories, 0)}{' '}
+            Calories
+          </span>
+        </div>
+        {mealsOfType.map((meal, index) => (
+          <div
+            key={index}
+            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg mb-2"
+          >
+            <div className="flex items-center gap-3">
+              {meal.imageUrl && (
+                <img
+                  src={meal.imageUrl}
+                  alt={meal.name}
+                  className="w-16 h-16 rounded-lg object-cover shadow-sm"
+                />
+              )}
+              <Link
+                href={`/cong-thuc/${meal.recipeId}`}
+                className="text-gray-800 hover:text-blue-600"
+              >
+                {meal.name}
+              </Link>
+            </div>
+            <span className="text-sm text-gray-600">1 serving</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full min-h-screen"
+    >
+      <section className="w-full py-8 md:py-12 lg:py-16 bg-orange-50" id="tao-ke-hoach">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-orange-600" />
+                <h1 className="text-2xl font-bold tracking-tighter sm:text-3xl">Kế hoạch bữa ăn của bạn</h1>
+              </div>
+              <p className="text-muted-foreground">
+
+                Cho ngày {date.toLocaleDateString('vi-VN')}.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                onClick={() => { router.push("#nguyen-lieu") }}
+                variant="outline" className="gap-2 cursor-pointer">
+                <ShoppingBag className="h-4 w-4" />
+                Danh sách mua sắm
+              </Button>
+
+              {!currentPlan ? (<>
+                <Button
+                  onClick={generateMealPlan}
+                  disabled={isRegenerating}
+                  className="gap-2 bg-orange-500 hover:bg-orange-600 cursor-pointer">
+                  <Utensils className="h-4 w-4" />
+                  {isGenerating ? 'Đang tạo kế hoạch...' : '  Tạo kế hoạch'}
+
+                </Button></>) : (<>
+                  <Button
+                    onClick={regenerateMealPlan}
+                    disabled={isRegenerating}
+                    className="gap-2 bg-orange-500 hover:bg-orange-600 cursor-pointer">
+                    <RefreshCw className="h-4 w-4" />
+                    {isGenerating ? 'Đang tạo kế hoạch mới...' : '  Tạo kế hoạch mới'}
+                  </Button></>)}
+              <Button
+                onClick={() => { router.push("/cong-thuc/aiSuggest") }}
+                className="gap-2 bg-black hover:bg-gray-600 cursor-pointer">
+                <Sparkles className="h-4 w-4" />
+                AI
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div className="flex items-center justify-between mb-6 mt-16 px-12">
+
+        <h1 className="text-2xl font-bold text-gray-800"></h1>
+        <div className="flex items-center gap-3">
+
+          <div className='mr-9 flex'>
+            <button
+              onClick={() => setDate(new Date(date.setDate(date.getDate() - 1)))}
+              className="text-blue-600 hover:text-blue-800 cursor-pointer"
+            >
+              &lt;
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowCalendar(!showCalendar)}
+                className="px-4 py-2 text-blue-600 hover:text-blue-800 flex items-center gap-2"
+              >
+                <span>{format(date, 'EEEE, MMM d')}</span>
+              </button>
+              {showCalendar && (
+                <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg p-4 z-50">
+                  <input
+                    type="date"
+                    value={format(date, 'yyyy-MM-dd')}
+                    onChange={(e) => {
+                      setDate(new Date(e.target.value));
+                      setShowCalendar(false);
+                    }}
+                    className="p-2 border rounded"
+                  />
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setDate(new Date(date.setDate(date.getDate() + 1)))}
+              className="text-blue-600 hover:text-blue-800 cursor-pointer"
+            >
+              &gt;
+            </button>
+          </div>
+
+          <button
+            onClick={generateWeeklyMealPlan}
+            className="cursor-pointer px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+            disabled={session?.user?.subscription?.status == 'free' && session?.user?.role !== "admin"}
+
+          >
+            <Calendar1 className="h-4 w-4" />
+            Tạo kế hoạch tuần
+          </button>
+
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-lg shadow-md p-6 animate-pulse"
+            >
+              <div className="h-4 bg-gray-200 rounded w-[200px] mb-4"></div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-[160px]"></div>
+                <div className="h-4 bg-gray-200 rounded w-[140px]"></div>
+                <div className="space-y-1 mt-4">
+                  <div className="h-3 bg-gray-200 rounded w-full"></div>
+                  <div className="h-3 bg-gray-200 rounded w-full"></div>
+                  <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-6">
+          <div className="flex-1 space-y-6">
+            {mealPlans.length === 0 || !currentPlan ? (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <div className="bg-white rounded-lg shadow-md p-6 text-center">
+                  <Utensils className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-lg font-semibold text-gray-900">
+                    No meal plans
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    No meal plans found for this date. Generate one to get
+                    started!
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                <div className="space-y-6">
+                  {[currentPlan].map((plan, planIndex) => (
+                    <motion.div
+                      key={plan._id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ delay: planIndex * 0.1 }}
+                    >
+                      <div className="bg-white rounded-lg shadow-md p-6">
+                        <div className="space-y-6">
+                          {renderMealSection('Breakfast')}
+                          {renderMealSection('Lunch')}
+                          {renderMealSection('Dinner')}
+                          {renderMealSection('Snack')}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* Nutrition Sidebar */}
+          {currentPlan && (
+            <div className="w-80 bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                Nutrition
+              </h2>
+              <div className="flex justify-center mb-4">
+                <div className="w-40 h-40">
+                  <Pie data={pieData} options={pieOptions} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Calories</span>
+                  <span className="font-medium">
+                    {currentPlan.totalCalories} /{' '}
+                    <span className="text-gray-500">{currentPlan.targetCalories}</span>
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Carbs</span>
+                  <span className="font-medium">
+                    {currentPlan.totalMacros.carbs}g
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Fat</span>
+                  <span className="font-medium">
+                    {currentPlan.totalMacros.fat}g
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Protein</span>
+                  <span className="font-medium">
+                    {currentPlan.totalMacros.protein}g
+                  </span>
+                </div>
+              </div>
+              <button className="mt-4 w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+                Detailed Nutrition Information
+              </button>
+            </div>
+          )}
+
+
+        </div>
+
+      )}
+      <>
+        <section className="w-full mt-16 py-8 md:py-12 bg-orange-50" id="nguyen-lieu">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="h-5 w-5 text-orange-600" />
+                  <h2 className="text-2xl font-bold">Danh sách nguyên liệu</h2>
+                </div>
+                <p className="text-muted-foreground">Nguyên liệu cần chuẩn bị cho cả tuần</p>
+              </div>
+              <Button variant="outline">In danh sách</Button>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {mealIngredients.map((ingredient, index) => (
+                <div key={index} className="flex items-center justify-between rounded-lg border p-3">
+                  <span>{ingredient.name}</span>
+                  <Badge variant="outline">{ingredient.amount}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="w-full py-8 md:py-12">
+          <div className="container px-4 md:px-6">
+            <div className="rounded-lg border bg-card p-6 shadow-sm">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold">Không hài lòng với kế hoạch này?</h2>
+                  <p className="text-muted-foreground">
+                    Bạn có thể tạo một kế hoạch mới hoặc tùy chỉnh các bữa ăn theo sở thích của mình.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {/* <Button variant="outline">Tùy chỉnh kế hoạch</Button> */}
+                  <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => { router.push("#tao-ke-hoach") }}>Tạo kế hoạch mới</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section></>
+    </motion.div>
+  );
+}

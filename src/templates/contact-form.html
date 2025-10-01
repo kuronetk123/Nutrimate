@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tin nhắn mới từ Nutrimate</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f9fafb;
+      color: #374151;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #ffffff;
+    }
+    .header {
+      text-align: center;
+      padding: 20px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .logo {
+      width: 120px;
+      height: auto;
+    }
+    .content {
+      padding: 30px 20px;
+    }
+    .message-box {
+      background-color: #f0fdf4;
+      border: 1px solid #dcfce7;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+    }
+    .button {
+      display: inline-block;
+      background-color: #10b981;
+      color: #ffffff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 500;
+      margin-top: 20px;
+    }
+    .info-row {
+      margin-bottom: 10px;
+    }
+    .info-label {
+      font-weight: 600;
+      color: #4b5563;
+    }
+    h1 {
+      color: #10b981;
+      margin-top: 0;
+    }
+    h2 {
+      color: #059669;
+      margin-top: 30px;
+    }
+    @media only screen and (max-width: 600px) {
+      .container {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="https://example.com/Nutrimate-logo.png" alt="Nutrimate Logo" class="logo">
+    </div>
+    
+    <div class="content">
+      <h1>Tin nhắn mới từ trang liên hệ</h1>
+      
+      <p>Xin chào đội ngũ Nutrimate,</p>
+      
+      <p>Bạn đã nhận được một tin nhắn mới từ trang liên hệ của Nutrimate. Dưới đây là chi tiết:</p>
+      
+      <div class="info-row">
+        <span class="info-label">Họ và tên:</span> {{name}}
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label">Email:</span> {{email}}
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label">Số điện thoại:</span> {{phone}}
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label">Chủ đề:</span> {{subject}}
+      </div>
+      
+      <h2>Nội dung tin nhắn:</h2>
+      
+      <div class="message-box">
+        {{message}}
+      </div>
+      
+      <p>Vui lòng phản hồi trong thời gian sớm nhất.</p>
+      
+      <a href="https://Nutrimate.vn/admin/messages" class="button">Xem trong hệ thống quản trị</a>
+    </div>
+    
+    <div class="footer">
+      <p>&copy; 2025 Nutrimate. Đã đăng ký bản quyền.</p>
+      <p>Tòa nhà Innovation, 123 Đường Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh, Việt Nam</p>
+      <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+    </div>
+  </div>
+</body>
+</html>
