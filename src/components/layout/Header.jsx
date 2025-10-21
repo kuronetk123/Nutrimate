@@ -44,6 +44,9 @@ export default function Header() {
                         <Link href="/cong-thuc" className="px-4 py-2 text-sm font-medium hover:text-orange-500 transition-colors">
                             Công thức
                         </Link>
+                            <Link href="/tutorial" className="px-4 py-2 text-sm font-medium hover:text-orange-500 transition-colors">
+                                Hướng dẫn
+                            </Link>
                         <Link href="/blog" className="px-4 py-2 text-sm font-medium hover:text-orange-500 transition-colors">
                             Blog
                         </Link>
