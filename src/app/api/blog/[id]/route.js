@@ -109,5 +109,21 @@ export async function POST(req, context) {
     return new Response(JSON.stringify(comments), { status: 201 });
   }
 
-  return new Response('Invalid type', { status: 400 });
+    return new Response('Invalid type', { status: 400 });
+}
+
+export async function DELETE(req, context) {
+  await connectDB();
+  const params = await context.params;
+  const id = params.id;
+  if (!id) return new Response('Missing id', { status: 400 });
+  try {
+    const deleted = await Blog.findByIdAndDelete(id);
+    if (!deleted) return new Response('Not found', { status: 404 });
+    // Return 204 No Content for successful deletion
+    return new Response(null, { status: 204 });
+  } catch (err) {
+    console.error('DELETE /api/blog/[id] error', err);
+    return new Response('Server error', { status: 500 });
+  }
 }
