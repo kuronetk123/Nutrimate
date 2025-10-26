@@ -105,6 +105,20 @@ export async function GET(request) {
       }),
     )
 
+    // Monthly user growth for the past 12 months
+    const monthlyUserGrowth = await Promise.all(
+      last12Months.map(async ({ month, startDate, endDate }) => {
+        const newUsers = await User.countDocuments({
+          createdAt: { $gte: startDate, $lte: endDate },
+        })
+
+        return {
+          month,
+          users: newUsers,
+        }
+      }),
+    )
+
     // Recent transactions
     const recentTransactions = await Transaction.find()
       .sort({ createdAt: -1 })
@@ -141,6 +155,7 @@ export async function GET(request) {
           newUsersPrevMonth > 0
             ? (((newUsersThisMonth - newUsersPrevMonth) / newUsersPrevMonth) * 100).toFixed(1)
             : 100,
+        monthly: monthlyUserGrowth.reverse(),
       },
       recipes: {
         total: totalRecipes,

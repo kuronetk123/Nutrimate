@@ -489,16 +489,65 @@ export default function AdminDashboard() {
             </Card>
           </div>
 
-          {/* User Growth Chart */}
-          <Card>
+          {/* User Growth Line Chart */}
+          <Card className="col-span-4">
             <CardHeader>
-              <CardTitle>Tăng Trưởng Người Dùng</CardTitle>
-              <CardDescription>Biểu đồ tăng trưởng người dùng theo thời gian</CardDescription>
+              <CardTitle>Xu Hướng Tăng Trưởng Người Dùng</CardTitle>
+              <CardDescription>Biểu đồ tăng trưởng người dùng 12 tháng gần đây</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Dữ liệu tăng trưởng người dùng sẽ được hiển thị ở đây
-              </div>
+            <CardContent className="pl-2">
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart
+                  data={users.monthly}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => [value, "Người dùng mới"]}
+                    labelFormatter={(label) => `Tháng: ${label}`}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="users" stroke="#8884d8" activeDot={{ r: 8 }} name="Người Dùng Mới" />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* User Growth Bar Chart */}
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Người Dùng Mới Theo Tháng</CardTitle>
+              <CardDescription>Số lượng người dùng đăng ký mới mỗi tháng</CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={users.monthly}
+                  margin={{
+                    top: 5,
+                    right: 30,
+                    left: 20,
+                    bottom: 5,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => [value, "Người dùng"]}
+                    labelFormatter={(label) => `Tháng: ${label}`}
+                  />
+                  <Legend />
+                  <Bar dataKey="users" fill="#00C49F" name="Người Dùng Mới" />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </TabsContent>
