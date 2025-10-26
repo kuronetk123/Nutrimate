@@ -31,12 +31,16 @@ import {
 } from "lucide-react"
 import { useToast } from "@/lib/hooks/use-toast"
 
-// Format currency to VND
+// Format currency to VND with symbol ₫, convert USD to VND using exchange rate
+const USD_TO_VND = 24500; // Update this rate as needed
 const formatCurrency = (value) => {
+  const vndValue = value * USD_TO_VND;
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
     currency: "VND",
-  }).format(value)
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(vndValue).replace("đ", "₫")
 }
 
 // Format percentage

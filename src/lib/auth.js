@@ -1,7 +1,6 @@
 
-import { cookies } from "next/headers"
-import jwt from "jsonwebtoken"
-// import { findUserById } from "@/services/user-service"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
 
@@ -46,34 +45,22 @@ export function verifyToken(token) {
 // }
 
 export async function requireAuth(request) {
-  const cookieStore = cookies()
-  const token = cookieStore.get("auth_token")?.value
-
-  if (!token) {
-    return null
+  const session = await getServerSession(authOptions)
+  if (!session || !session.user) {
+    return { error: "No session or user found" }
   }
-
-  const payload = verifyToken(token)
-  if (!payload) {
-    return null
-  }
-
-  const user = await findUserById(payload.sub)
-  if (!user || !user.isVerified) {
-    return null
-  }
-
-  return user
+  return session.user
 }
 
 export async function requireAdmin(request) {
   const user = await requireAuth(request)
-
-  if (!user || !user.role === "admin") {
-    return null
+  if (user?.error) {
+    return { error: user.error }
   }
-
+  if (user.role !== "admin") {
+    return { error: "User is not admin" }
+  }
   return user
 }
 
-export const authOptions = {}
+// Removed duplicate export of authOptions

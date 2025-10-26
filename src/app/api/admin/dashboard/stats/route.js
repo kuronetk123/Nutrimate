@@ -9,8 +9,8 @@ import Transaction from "@/database/models/Transaction"
 export async function GET(request) {
   try {
     const user = await requireAdmin(request)
-    if (!user) {
-      return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 })
+    if (user?.error) {
+      return NextResponse.json({ error: "Không có quyền truy cập", detail: user.error }, { status: 403 })
     }
 
     await connectDB()

@@ -29,10 +29,24 @@ export async function PATCH(req) {
   const user = await User.findOne({ email: session.user.email });
   if (!user) return new Response('User not found', { status: 404 });
 
+  // Enum values from schema
+  const validWorkHabits = ['sedentary', 'light', 'moderate', 'active', 'very active'];
+  const validEatingHabits = ['light', 'moderate', 'heavy', 'snacker'];
+
   // Deep merge: Only update fields provided in the request, leave others unchanged
   const updatedProfile = {
     ...user.profile,
     ...data,
+    // Validate workHabits
+    workHabits:
+      data.workHabits && validWorkHabits.includes(data.workHabits)
+        ? data.workHabits
+        : user.profile.workHabits,
+    // Validate eatingHabits
+    eatingHabits:
+      data.eatingHabits !== undefined && validEatingHabits.includes(data.eatingHabits)
+        ? data.eatingHabits
+        : user.profile.eatingHabits,
     // Preserve nested arrays like allergies if not explicitly updated
     allergies: data.allergies !== undefined ? data.allergies : user.profile.allergies,
   };

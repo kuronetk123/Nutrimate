@@ -35,7 +35,16 @@ export default function Onboarding() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // For workHabits and eatingHabits, set undefined if value is empty string
+    if ((name === 'workHabits' || name === 'eatingHabits') && value === '') {
+      setFormData((prev) => {
+        const updated = { ...prev };
+        delete updated[name];
+        return updated;
+      });
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleAllergiesChange = (e) => {
