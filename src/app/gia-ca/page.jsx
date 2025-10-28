@@ -84,7 +84,7 @@ export default function PricingPage() {
       id: "professional-yearly",
       name: "Chuyên nghiệp (Năm)",
       description: "Tiết kiệm 20% khi thanh toán theo năm",
-      price: 6900000,
+      price: 690000,
       duration: "năm",
       features: [
         "Tạo công thức không giới hạn",
