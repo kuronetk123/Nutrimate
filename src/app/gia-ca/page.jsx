@@ -29,7 +29,7 @@ export default function PricingPage() {
       id: "premium-monthly",
       name: "Cao cấp",
       description: "Dành cho người dùng nâng cao",
-      price: 199000,
+      price: 39000,
       duration: "tháng",
       features: [
         "Tạo tối đa 50 công thức mỗi tháng",
@@ -46,7 +46,7 @@ export default function PricingPage() {
       id: "professional-monthly",
       name: "Chuyên nghiệp",
       description: "Dành cho người dùng chuyên nghiệp",
-      price: 299000,
+      price: 69000,
       duration: "tháng",
       features: [
         "Tạo công thức không giới hạn",
@@ -66,7 +66,7 @@ export default function PricingPage() {
       id: "premium-yearly",
       name: "Cao cấp (Năm)",
       description: "Tiết kiệm 20% khi thanh toán theo năm",
-      price: 1900000,
+      price: 390000,
       duration: "năm",
       features: [
         "Tạo tối đa 50 công thức mỗi tháng",
@@ -84,7 +84,7 @@ export default function PricingPage() {
       id: "professional-yearly",
       name: "Chuyên nghiệp (Năm)",
       description: "Tiết kiệm 20% khi thanh toán theo năm",
-      price: 2900000,
+      price: 6900000,
       duration: "năm",
       features: [
         "Tạo công thức không giới hạn",
