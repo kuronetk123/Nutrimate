@@ -166,17 +166,6 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(revenue.thisMonth)}</div>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {revenue.growthRate > 0 ? (
-                    <ArrowUpIcon className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <ArrowDownIcon className="h-4 w-4 text-red-500" />
-                  )}
-                  <span className={revenue.growthRate > 0 ? "text-green-500" : "text-red-500"}>
-                    {formatPercentage(revenue.growthRate)}
-                  </span>
-                  so với tháng trước
-                </p>
               </CardContent>
             </Card>
 
@@ -200,17 +189,6 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{users.total}</div>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {users.growthRate > 0 ? (
-                    <ArrowUpIcon className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <ArrowDownIcon className="h-4 w-4 text-red-500" />
-                  )}
-                  <span className={users.growthRate > 0 ? "text-green-500" : "text-red-500"}>
-                    {formatPercentage(users.growthRate)}
-                  </span>
-                  người dùng mới tháng này
-                </p>
               </CardContent>
             </Card>
           </div>
@@ -328,17 +306,6 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(revenue.prevMonth)}</div>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {revenue.growthRate > 0 ? (
-                    <ArrowUpIcon className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <ArrowDownIcon className="h-4 w-4 text-red-500" />
-                  )}
-                  <span className={revenue.growthRate > 0 ? "text-green-500" : "text-red-500"}>
-                    {formatPercentage(revenue.growthRate)}
-                  </span>
-                  tăng trưởng
-                </p>
               </CardContent>
             </Card>
           </div>
@@ -462,17 +429,6 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{users.newThisMonth}</div>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  {users.growthRate > 0 ? (
-                    <ArrowUpIcon className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <ArrowDownIcon className="h-4 w-4 text-red-500" />
-                  )}
-                  <span className={users.growthRate > 0 ? "text-green-500" : "text-red-500"}>
-                    {formatPercentage(users.growthRate)}
-                  </span>
-                  so với tháng trước
-                </p>
               </CardContent>
             </Card>
 

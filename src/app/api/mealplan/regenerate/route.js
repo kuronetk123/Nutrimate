@@ -4,6 +4,7 @@ import connectDB from "../../../../common/db";
 import MealPlan from "../../../../database/models/MealPlan";
 import Recipe from "../../../../database/models/Recipe";
 import User from "../../../../database/models/User";
+import { mealsMap } from "../../../../common/EUserSpec";
 
 export async function POST(req) {
   try {
@@ -127,48 +128,68 @@ export async function POST(req) {
     // console.log('Calculated daily calories:', dailyCalories);
 
     // Fetch meal types from user profile or use default
-    const mealTypes = Array.isArray(user.profile.meals) && user.profile.meals.length > 0
-      ? user.profile.meals.map(m => m.charAt(0).toUpperCase() + m.slice(1))
-      : ['Breakfast', 'Lunch', 'Dinner'];
+    const userMeals = Array.isArray(user.profile.meals) && user.profile.meals.length > 0
+      ? user.profile.meals
+      : ['breakfast', 'lunch', 'dinner'];
+    
+    // Map meal preferences to capitalized meal types (English for display)
+    const mealTypes = userMeals.map(meal =>
+      meal.charAt(0).toUpperCase() + meal.slice(1)
+    );
+    // Map to Vietnamese tags for filtering recipes
+    const mealTags = userMeals.map(meal => mealsMap[meal.toLowerCase()] || meal);
 
-    // Fetch new recipes
+    // Base query for diet and allergies
     const dietQuery = user.profile.diet === 'none' ? {} : { diet: user.profile.diet };
     const allergiesQuery = user.profile.allergies?.length
       ? { 'ingredients.name': { $nin: user.profile.allergies } }
       : {};
 
-    // console.log('Recipe query:', { dietQuery, allergiesQuery });
+    // console.log('Base recipe query:', { dietQuery, allergiesQuery });
 
-    // Fetch up to 2 recipes per meal type
+    // Fetch recipes for each meal type based on tags
+    const meals = [];
     const recipesPerMeal = 2; // Maximum recipes per meal type
-    const totalRecipesNeeded = mealTypes.length * recipesPerMeal;
-    const recipes = await Recipe.aggregate([
-      { $match: { ...dietQuery, ...allergiesQuery } },
-      { $sample: { size: totalRecipesNeeded } }
-    ]);
 
-    if (recipes.length < mealTypes.length) {
-      return new Response(
-        JSON.stringify({
-          error: 'Recipe Error',
-          details: `Only found ${recipes.length} recipes matching your dietary preferences. Need at least ${mealTypes.length} recipes.`,
-          code: 'INSUFFICIENT_RECIPES',
-          found: recipes.length,
-          required: mealTypes.length
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+    for (let i = 0; i < mealTypes.length; i++) {
+      const mealType = mealTypes[i];
+      const mealTag = mealTags[i];
+
+      // Query recipes for this specific meal type with matching tag (case-insensitive)
+      // Normalize tag to lowercase to match database format
+      const normalizedTag = mealTag.toLowerCase();
+      const tagQuery = { tags: { $regex: new RegExp(`^${normalizedTag}$`, 'i') } };
+      const recipesForMealType = await Recipe.aggregate([
+        { $match: { ...dietQuery, ...allergiesQuery, ...tagQuery } },
+        { $sample: { size: recipesPerMeal } }
+      ]);
+
+      if (recipesForMealType.length === 0) {
+        return new Response(
+          JSON.stringify({
+            error: 'Recipe Error',
+            details: `Không tìm thấy công thức nào cho ${mealType} (${mealTag}). Vui lòng kiểm tra lại dữ liệu công thức.`,
+            code: 'INSUFFICIENT_RECIPES',
+            mealType: mealType,
+            tag: mealTag
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Add recipes to meals (use first recipe, or both if available)
+      for (const recipe of recipesForMealType.slice(0, 1)) {
+        meals.push({
+          type: mealType,
+          recipeId: recipe._id,
+          name: recipe.name,
+          calories: recipe.calories,
+          macros: recipe.nutrition,
+          imageUrl: recipe.image || recipe.imageUrl,
+          ingredients: recipe.ingredients,
+        });
+      }
     }
-    // console.log('Found recipes:', recipes);
-    const meals = recipes.slice(0, mealTypes.length).map((recipe, index) => ({
-      type: mealTypes[index],
-      recipeId: recipe._id,
-      name: recipe.name,
-      calories: recipe.calories,
-      macros: recipe.nutrition,
-      imageUrl: recipe.imageUrl,
-      ingredients: recipe.ingredients,
-    }));
 
     // console.log('Meals generated:', meals);
 

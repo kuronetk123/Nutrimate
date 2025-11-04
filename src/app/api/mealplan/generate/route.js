@@ -4,6 +4,7 @@ import connectDB from "../../../../common/db";
 import MealPlan from "../../../../database/models/MealPlan";
 import Recipe from "../../../../database/models/Recipe";
 import User from "../../../../database/models/User";
+import { mealsMap } from "../../../../common/EUserSpec";
 
 export async function POST(req) {
   try {
@@ -134,69 +135,67 @@ export async function POST(req) {
     const dailyCalories = Math.round(bmr * activityMultipliers[normalizedWorkHabits]);
     console.log('Calculated daily calories:', dailyCalories);
 
-    // Map meal preferences to capitalized meal types
+    // Map meal preferences to capitalized meal types (English for display)
     const mealTypes = meals.map(meal =>
       meal.charAt(0).toUpperCase() + meal.slice(1)
     );
+    // Map to Vietnamese tags for filtering recipes
+    const mealTags = meals.map(meal => mealsMap[meal.toLowerCase()] || meal);
     console.log('User meal preferences:', mealTypes);
+    console.log('Meal tags for filtering:', mealTags);
 
-    // Fetch recipes based on diet and allergies
+    // Base query for diet and allergies
     const dietQuery = user.profile.diet === 'none' ? {} : { diet: user.profile.diet };
     const allergiesQuery = user.profile.allergies?.length
       ? { 'ingredients.name': { $nin: user.profile.allergies } }
       : {};
 
-    console.log('Recipe query:', { dietQuery, allergiesQuery });
+    console.log('Base recipe query:', { dietQuery, allergiesQuery });
 
-    // Fetch up to 2 recipes per meal type
-    const recipesPerMeal = 2; // Maximum recipes per meal type
-    const totalRecipesNeeded = mealTypes.length * recipesPerMeal;
-    const recipes = await Recipe.aggregate([
-      { $match: { ...dietQuery, ...allergiesQuery } },
-      { $sample: { size: totalRecipesNeeded } }
-    ]);
-
-    console.log('Found recipes:', recipes.length);
-
-    if (recipes.length < mealTypes.length) {
-      return new Response(
-        JSON.stringify({
-          error: 'Recipe Error',
-          details: `Only found ${recipes.length} recipes matching your dietary preferences. Need at least ${mealTypes.length} recipes (1 per meal type).`,
-          code: 'INSUFFICIENT_RECIPES',
-          found: recipes.length,
-          required: mealTypes.length
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Distribute recipes across meal types
+    // Fetch recipes for each meal type based on tags
     const mealPlans = [];
-    let recipeIndex = 0;
+    const recipesPerMeal = 2; // Maximum recipes per meal type
 
-    for (const mealType of mealTypes) {
-      const recipesForMeal = [];
-      // Assign 1 to 2 recipes per meal type
-      const numRecipes = Math.min(
-        2, // Max 2 recipes
-        Math.max(1, Math.floor((recipes.length - recipeIndex) / (mealTypes.length - mealPlans.length))) // Ensure at least 1
-      );
+    for (let i = 0; i < mealTypes.length; i++) {
+      const mealType = mealTypes[i];
+      const mealTag = mealTags[i];
 
-      for (let i = 0; i < numRecipes && recipeIndex < recipes.length; i++) {
-        const recipe = recipes[recipeIndex];
-        recipesForMeal.push({
+      // Query recipes for this specific meal type with matching tag (case-insensitive)
+      // Normalize tag to lowercase to match database format
+      const normalizedTag = mealTag.toLowerCase();
+      const tagQuery = { tags: { $regex: new RegExp(`^${normalizedTag}$`, 'i') } };
+      const recipesForMealType = await Recipe.aggregate([
+        { $match: { ...dietQuery, ...allergiesQuery, ...tagQuery } },
+        { $sample: { size: recipesPerMeal } }
+      ]);
+
+      console.log(`Found ${recipesForMealType.length} recipes for ${mealType} (tag: ${mealTag})`);
+
+      if (recipesForMealType.length === 0) {
+        return new Response(
+          JSON.stringify({
+            error: 'Recipe Error',
+            details: `Không tìm thấy công thức nào cho ${mealType} (${mealTag}). Vui lòng kiểm tra lại dữ liệu công thức.`,
+            code: 'INSUFFICIENT_RECIPES',
+            mealType: mealType,
+            tag: mealTag
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Add recipes to meal plan
+      for (const recipe of recipesForMealType) {
+        mealPlans.push({
           type: mealType,
           recipeId: recipe._id,
           name: recipe.name,
           calories: recipe.calories,
           macros: recipe.nutrition,
-          imageUrl: recipe.imageUrl,
+          imageUrl: recipe.image || recipe.imageUrl,
           ingredients: recipe.ingredients,
         });
-        recipeIndex++;
       }
-      mealPlans.push(...recipesForMeal);
     }
 
     const totalCalories = mealPlans.reduce((sum, meal) => sum + meal.calories, 0);

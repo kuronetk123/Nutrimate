@@ -4,6 +4,7 @@ import connectDB from "../../../../common/db";
 import MealPlan from "../../../../database/models/MealPlan";
 import Recipe from "../../../../database/models/Recipe";
 import User from "../../../../database/models/User";
+import { mealsMap } from "../../../../common/EUserSpec";
 
 export async function POST(req) {
   try {
@@ -134,59 +135,105 @@ export async function POST(req) {
     const dailyCalories = Math.round(bmr * activityMultipliers[normalizedWorkHabits]);
     console.log('Calculated daily calories:', dailyCalories);
 
-    // Map meal preferences to capitalized meal types
+    // Map meal preferences to capitalized meal types (English for display)
     const mealTypes = meals.map(meal =>
       meal.charAt(0).toUpperCase() + meal.slice(1)
     );
+    // Map to Vietnamese tags for filtering recipes
+    const mealTags = meals.map(meal => mealsMap[meal.toLowerCase()] || meal);
+    console.log('User meal preferences:', mealTypes);
+    console.log('Meal tags for filtering:', mealTags);
 
-
-    // Fetch recipes based on diet and allergies
+    // Base query for diet and allergies
     const dietQuery = user.profile.diet === 'none' ? {} : { diet: user.profile.diet };
     const allergiesQuery = user.profile.allergies?.length
       ? { 'ingredients.name': { $nin: user.profile.allergies } }
       : {};
 
-    const recipes = await Recipe.find({
-      ...dietQuery,
-      ...allergiesQuery
-    });
+    // Pre-fetch recipes for each meal type (tag) to ensure we have enough for the week
+    const recipesByTag = {};
+    for (let i = 0; i < mealTags.length; i++) {
+      const mealTag = mealTags[i];
+      
+      // Normalize tag to lowercase to match database format and query case-insensitive
+      const normalizedTag = mealTag.toLowerCase();
+      const tagQuery = { tags: { $regex: new RegExp(`^${normalizedTag}$`, 'i') } };
+      
+      // Fetch more recipes than needed per day to ensure variety
+      const recipesForTag = await Recipe.find({
+        ...dietQuery,
+        ...allergiesQuery,
+        ...tagQuery
+      }).limit(10); // Get up to 10 recipes per meal type
 
-    if (recipes.length < mealTypes.length * 7) {
-      return new Response(
-        JSON.stringify({
-          error: 'Not enough recipes for a full week.',
-          code: 'INSUFFICIENT_RECIPES',
-          found: recipes.length,
-          required: mealTypes.length * 7
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      if (recipesForTag.length < 7) {
+        return new Response(
+          JSON.stringify({
+            error: 'Not enough recipes',
+            details: `Không đủ công thức cho ${mealTypes[i]} (${mealTag}). Cần ít nhất 7 công thức cho 1 tuần, nhưng chỉ tìm thấy ${recipesForTag.length}.`,
+            code: 'INSUFFICIENT_RECIPES',
+            mealType: mealTypes[i],
+            tag: mealTag,
+            found: recipesForTag.length,
+            required: 7
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      recipesByTag[mealTag] = recipesForTag;
     }
 
-    // Shuffle recipes
-    const shuffledRecipes = recipes.sort(() => Math.random() - 0.5);
-    const usedRecipeIds = new Set();
     const weeklyPlans = [];
+    const usedRecipeIdsByDay = {}; // Track used recipes per day to avoid duplicates within the same day
 
     for (let day = 0; day < 7; day++) {
       const date = new Date(startDate);
       date.setDate(date.getDate() + day);
+      const dayKey = date.toISOString().split('T')[0];
+      usedRecipeIdsByDay[dayKey] = new Set();
 
       const dailyMeals = [];
-      for (const type of mealTypes) {
-        const recipe = shuffledRecipes.find(r => !usedRecipeIds.has(r._id.toString()));
-        if (!recipe) break;
-        usedRecipeIds.add(recipe._id.toString());
-
-        dailyMeals.push({
-          type,
-          recipeId: recipe._id,
-          name: recipe.name,
-          calories: recipe.calories,
-          macros: recipe.nutrition,
-          imageUrl: recipe.imageUrl,
-          ingredients: recipe.ingredients,
-        });
+      
+      for (let i = 0; i < mealTypes.length; i++) {
+        const mealType = mealTypes[i];
+        const mealTag = mealTags[i];
+        
+        // Get available recipes for this tag, excluding already used ones for this day
+        const availableRecipes = recipesByTag[mealTag].filter(
+          r => !usedRecipeIdsByDay[dayKey].has(r._id.toString())
+        );
+        
+        if (availableRecipes.length === 0) {
+          // If we've used all recipes, shuffle and reset (allow reuse)
+          usedRecipeIdsByDay[dayKey].clear();
+          const recipe = recipesByTag[mealTag][Math.floor(Math.random() * recipesByTag[mealTag].length)];
+          
+          dailyMeals.push({
+            type: mealType,
+            recipeId: recipe._id,
+            name: recipe.name,
+            calories: recipe.calories,
+            macros: recipe.nutrition,
+            imageUrl: recipe.image || recipe.imageUrl,
+            ingredients: recipe.ingredients,
+          });
+          usedRecipeIdsByDay[dayKey].add(recipe._id.toString());
+        } else {
+          // Pick a random recipe from available ones
+          const recipe = availableRecipes[Math.floor(Math.random() * availableRecipes.length)];
+          
+          dailyMeals.push({
+            type: mealType,
+            recipeId: recipe._id,
+            name: recipe.name,
+            calories: recipe.calories,
+            macros: recipe.nutrition,
+            imageUrl: recipe.image || recipe.imageUrl,
+            ingredients: recipe.ingredients,
+          });
+          usedRecipeIdsByDay[dayKey].add(recipe._id.toString());
+        }
       }
 
       const totalCalories = dailyMeals.reduce((sum, m) => sum + m.calories, 0);
